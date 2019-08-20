@@ -20,6 +20,8 @@ export default class App extends React.Component {
 
   // _panResponder: PanResponderInstance;
   point = new Animated.ValueXY();
+  flatListOpacity = new Animated.Value(1)
+  draggerOpacity = new Animated.Value(0)
   currentY = 0;
   scrollOffset = 0;
   flatlistTopOffset = 0;
@@ -51,26 +53,42 @@ export default class App extends React.Component {
           y: gestureState.y0 - this.rowHeight / 2,
         });
         this.active = true;
+        Animated.parallel([
+          Animated.timing(this.flatListOpacity, {
+            toValue: 0.5,
+            useNativeDriver: true
+          }),
+          Animated.timing(this.draggerOpacity, {
+            toValue: 1,
+            useNativeDriver: true
+          })
+        ]).start()
         this.setState({ dragging: true, draggingIdx: this.currentIdx }, () => {
           this.animateList();
         });
       },
       onPanResponderMove: (evt, gestureState) => {
-        this.currentY = gestureState.moveY;
         Animated.event([{ y: this.point.y }])({ y: gestureState.moveY });
+        this.currentY = gestureState.moveY;
       },
       onPanResponderTerminationRequest: (evt, gestureState) => false,
-      onPanResponderRelease: (evt, gestureState) => this.reset(),
-      onPanResponderTerminate: (evt, gestureState) => this.reset(),
+      onPanResponderRelease: (evt, gestureState) => {
+        this.reset();
+      },
+      onPanResponderTerminate: (evt, gestureState) => {
+        this.reset();
+      },
       onShouldBlockNativeResponder: (evt, gestureState) => true,
     });
   }
 
   animateList() {
+
+
+
     if (!this.active) {
       return;
     }
-
     requestAnimationFrame(() => {
       if (this.currentY + 100 > this.flatListHeight) {
         this.flatList.current.scrollToOffset({
@@ -91,6 +109,7 @@ export default class App extends React.Component {
           this.currentIdx,
           newIdx
         );
+
         this.setState({
           draggingIdx: newIdx,
         });
@@ -118,45 +137,55 @@ export default class App extends React.Component {
 
   reset() {
     this.active = false;
-    this.setState({ dragging: false, draggingIdx: -1 });
+    this.setState({ dragging: false, draggingIdx: -1 }, () => {
+      Animated.parallel([
+        Animated.timing(this.flatListOpacity, {
+          toValue: 1,
+          useNativeDriver: true
+        }),
+        Animated.timing(this.draggerOpacity, {
+          toValue: 0,
+          useNativeDriver: true
+        })
+      ]).start()
+    });
   }
 
   renderItem({ item, index }, noPanResponder = false) {
     const RenderItem = this.props.renderItem;
-    const panHandler = this._panResponder.panHandlers;
+    const draggingIdx = this.state.draggingIdx;
     return (
-      <View
+      <Animated.View
         onLayout={e => {
           this.rowHeight = e.nativeEvent.layout.height;
         }}
         style={{
           backgroundColor: 'green',
           marginVertical: 5,
-          padding: 16,
-          // opacity: draggingIdx === index ? 0 : 1
+          opacity: this.flatListOpacity
         }}>
         <View {...this._panResponder.panHandlers}>
           <RenderItem {...{ item, index }} />
         </View>
-      </View>
+      </Animated.View>
     );
   }
 
   renderAnimatedItem({ item, index }) {
     const RenderItem = this.props.renderItem;
+    const draggingIdx = this.state.draggingIdx;
 
     return (
-      <View
+      <Animated.View
         onLayout={e => {
           this.rowHeight = e.nativeEvent.layout.height;
         }}
         style={{
           backgroundColor: 'red',
-          padding: 16,
-          // opacity: draggingIdx === index ? 0 : 1
+          opacity: this.draggerOpacity
         }}>
         <RenderItem {...{ item, index }} />
-      </View>
+      </Animated.View>
     );
   }
 
@@ -170,18 +199,7 @@ export default class App extends React.Component {
 
     return (
       <SafeAreaView style={styles.container}>
-        {dragging && (
-          <Animated.View
-            style={{
-              position: 'absolute',
-              backgroundColor: 'cyan',
-              zIndex: 2,
-              width: '100%',
-              top: this.point.getLayout().top,
-            }}>
-            {renderAnimatedItem({ item: data[draggingIdx], index: -1 })}
-          </Animated.View>
-        )}
+
         <FlatList
           ref={this.flatList}
           scrollEnabled={!dragging}
@@ -199,6 +217,18 @@ export default class App extends React.Component {
           }}
           scrollEventThrottle={16}
         />
+        {dragging && (
+          <Animated.View
+            style={{
+              position: 'absolute',
+              backgroundColor: 'cyan',
+              zIndex: 2,
+              width: '100%',
+              top: this.point.getLayout().top,
+            }}>
+            {renderAnimatedItem({ item: data[draggingIdx], index: -1 })}
+          </Animated.View>
+        )}
       </SafeAreaView>
     );
   }

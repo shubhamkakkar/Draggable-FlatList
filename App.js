@@ -8,7 +8,7 @@ export default function App() {
     return index.toString();
   }
 
-  function renderItem({ item, index }, noPanResponder = false) {
+  function renderItem({ item, index }) {
     return (
       <View
         style={{
